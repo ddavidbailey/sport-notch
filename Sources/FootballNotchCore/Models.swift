@@ -13,3 +13,45 @@ public enum MatchStatus: Equatable {
         }
     }
 }
+
+public struct Team: Equatable {
+    public let name: String
+    public let abbreviation: String
+    public let countryCode: String
+
+    public var flag: String { Flag.emoji(forCountryCode: countryCode) }
+
+    public init(name: String, abbreviation: String, countryCode: String) {
+        self.name = name
+        self.abbreviation = abbreviation
+        self.countryCode = countryCode
+    }
+}
+
+public struct Match: Equatable, Identifiable {
+    public let id: String
+    public let competitionId: String
+    public let home: Team
+    public let away: Team
+    public let homeScore: Int
+    public let awayScore: Int
+    public let status: MatchStatus
+    public let clock: String
+    public let kickoff: Date
+
+    public var isLive: Bool { status == .live || status == .halftime }
+
+    public init(id: String, competitionId: String, home: Team, away: Team,
+                homeScore: Int, awayScore: Int, status: MatchStatus,
+                clock: String, kickoff: Date) {
+        self.id = id
+        self.competitionId = competitionId
+        self.home = home
+        self.away = away
+        self.homeScore = homeScore
+        self.awayScore = awayScore
+        self.status = status
+        self.clock = clock
+        self.kickoff = kickoff
+    }
+}
