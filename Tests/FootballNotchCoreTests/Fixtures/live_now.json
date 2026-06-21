@@ -1,0 +1,48 @@
+{
+  "ContinuationToken": "2",
+  "ContinuationHash": "2",
+  "Results": [
+    {
+      "IdMatch": "400021465",
+      "IdCompetition": "17",
+      "IdSeason": "285023",
+      "MatchStatus": 3,
+      "Period": 3,
+      "MatchTime": "2'",
+      "Date": "2026-06-20T22:00:00Z",
+      "HomeTeam": {
+        "Score": 0,
+        "IdCountry": "ECU",
+        "Abbreviation": "ECU",
+        "TeamName": [{ "Locale": "en-GB", "Description": "Ecuador" }]
+      },
+      "AwayTeam": {
+        "Score": 0,
+        "IdCountry": "CUW",
+        "Abbreviation": "CUW",
+        "TeamName": [{ "Locale": "en-GB", "Description": "Curaçao" }]
+      }
+    },
+    {
+      "IdMatch": "a1fjdj9s7o65elri9laktqh3o",
+      "IdCompetition": "c1d9p6b2e9zr5tqlzx3ktjplg",
+      "IdSeason": "cbkjk31sv9wm38ljg3vxhtus4",
+      "MatchStatus": 3,
+      "Period": 4,
+      "MatchTime": "0'",
+      "Date": "2026-06-20T23:00:00Z",
+      "HomeTeam": {
+        "Score": 0,
+        "IdCountry": "USA",
+        "Abbreviation": "BKN",
+        "TeamName": [{ "Locale": "en-GB", "Description": "Brooklyn" }]
+      },
+      "AwayTeam": {
+        "Score": 2,
+        "IdCountry": "USA",
+        "Abbreviation": "TBR",
+        "TeamName": [{ "Locale": "en-GB", "Description": "Tampa Bay Rowdies" }]
+      }
+    }
+  ]
+}
