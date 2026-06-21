@@ -3,11 +3,12 @@ import Foundation
 public enum MatchStatus: Equatable {
     case scheduled, live, halftime, finished, abandoned, unknown
 
-    /// Maps FIFA's undocumented numeric codes to a domain status.
-    /// Only `.live` (observed value 3) is confirmed today; `.scheduled` is added
-    /// in Task 7 after verifying the calendar endpoint. Unknown codes stay `.unknown`.
+    /// Maps FIFA's undocumented numeric codes to a domain status. Confirmed against
+    /// the live feed: 0 = not-started (scheduled), 3 = live. Other codes (including the
+    /// calendar's unreliable values) degrade to `.unknown` rather than guessing.
     public init(matchStatus: Int, period: Int) {
         switch matchStatus {
+        case 0: self = .scheduled
         case 3: self = .live
         default: self = .unknown
         }
