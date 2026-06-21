@@ -1,11 +1,11 @@
 import Foundation
 
-public protocol FootballService {
+public protocol FootballService: Sendable {
     func fetchLiveMatches() async throws -> [Match]
     func fetchNextMatch() async throws -> Match?
 }
 
-public protocol DataFetching {
+public protocol DataFetching: Sendable {
     func data(from url: URL) async throws -> Data
 }
 

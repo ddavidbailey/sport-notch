@@ -1,6 +1,6 @@
 import Foundation
 
-public enum MatchStatus: Equatable {
+public enum MatchStatus: Equatable, Sendable {
     case scheduled, live, halftime, finished, abandoned, unknown
 
     /// Maps FIFA's undocumented numeric codes to a domain status. Confirmed against
@@ -15,7 +15,7 @@ public enum MatchStatus: Equatable {
     }
 }
 
-public struct Team: Equatable {
+public struct Team: Equatable, Sendable {
     public let name: String
     public let abbreviation: String
     public let countryCode: String
@@ -29,7 +29,7 @@ public struct Team: Equatable {
     }
 }
 
-public struct Match: Equatable, Identifiable {
+public struct Match: Equatable, Identifiable, Sendable {
     public let id: String
     public let competitionId: String
     public let home: Team
