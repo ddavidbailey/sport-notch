@@ -1,2 +1,6 @@
-// Replaced with the real app bootstrap in Task 9.
-print("FootballNotch")
+import AppKit
+
+let app = NSApplication.shared
+let delegate = AppDelegate()
+app.delegate = delegate
+app.run()
