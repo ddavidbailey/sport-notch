@@ -1,0 +1,11 @@
+# Design docs / specs (local only, not pushed)
+docs/
+
+# Claude Code / agent files (local only, not pushed)
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+
+# Swift / build artifacts
+.build/
+FootballNotch.app/
