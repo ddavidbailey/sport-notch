@@ -3,9 +3,17 @@ import FootballNotchCore
 
 enum NotchScreen { case collapsed, expanded, menu }
 
+private struct ContentSizeKey: PreferenceKey {
+    static let defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        value = nextValue()
+    }
+}
+
 struct NotchRootView: View {
     @ObservedObject var store: MatchStore
     @State private var screen: NotchScreen = .collapsed
+    var onResize: (CGSize) -> Void = { _ in }
 
     var body: some View {
         content
@@ -17,6 +25,14 @@ struct NotchRootView: View {
             .onHover { inside in
                 guard screen != .menu else { return }
                 screen = inside ? .expanded : .collapsed
+            }
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(key: ContentSizeKey.self, value: proxy.size)
+                }
+            )
+            .onPreferenceChange(ContentSizeKey.self) { size in
+                MainActor.assumeIsolated { onResize(size) }
             }
     }
 

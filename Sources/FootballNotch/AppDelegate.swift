@@ -11,7 +11,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory) // no Dock icon, agent app
         store = MatchStore(service: FIFAService())
-        windowController = NotchWindowController(rootView: NotchRootView(store: store))
+        windowController = NotchWindowController(
+            rootView: NotchRootView(store: store, onResize: { [weak self] size in
+                // The first preference update can fire synchronously while the
+                // controller is still being constructed (before `windowController`
+                // is assigned). Defer so the resize runs once the property is set.
+                Task { @MainActor in self?.windowController?.resize(to: size) }
+            }))
         startPolling()
     }
 
