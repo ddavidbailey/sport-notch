@@ -1,5 +1,5 @@
 import XCTest
-@testable import FootballNotchCore
+@testable import SportNotchCore
 
 private func m(_ id: String, _ home: Int, _ away: Int) -> Match {
     Match(id: id, competitionId: "17",

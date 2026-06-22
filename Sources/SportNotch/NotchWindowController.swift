@@ -121,7 +121,7 @@ final class NotchWindowController {
         let metrics = NotchMetrics.forScreen(screen)
         if context.metrics != metrics { context.metrics = metrics }
         NSLog("""
-        FootballNotch: active screen "\(screen.localizedName)" \
+        SportNotch: active screen "\(screen.localizedName)" \
         \(String(format: "%.1f", metrics.diagonalInches))" builtIn=\(metrics.isBuiltIn) \
         hasNotch=\(metrics.hasNotch) notch=\(Int(metrics.width))x\(Int(metrics.height))
         """)

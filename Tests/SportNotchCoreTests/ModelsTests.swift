@@ -1,5 +1,5 @@
 import XCTest
-@testable import FootballNotchCore
+@testable import SportNotchCore
 
 final class ModelsTests: XCTestCase {
     func testTeamFlagDerivedFromCountryCode() {

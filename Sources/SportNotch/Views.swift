@@ -1,5 +1,5 @@
 import SwiftUI
-import FootballNotchCore
+import SportNotchCore
 
 private let notchAnimation = Animation.spring(response: 0.34, dampingFraction: 0.82)
 

@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 # Build the release .app bundle.
 scripts/package.sh
 
-APP="FootballNotch.app"
+APP="SportNotch.app"
 DEST="/Applications"
 
 if [ ! -w "$DEST" ]; then
@@ -22,4 +22,4 @@ cp -R "$APP" "$DEST/$APP"
 xattr -dr com.apple.quarantine "$DEST/$APP" 2>/dev/null || true
 
 echo "Installed $DEST/$APP"
-echo "Launch it from Launchpad or /Applications. Quit via the soccerball menu bar icon → Quit Football Notch."
+echo "Launch it from Launchpad or /Applications. Quit via the soccerball menu bar icon → Quit Sport Notch."

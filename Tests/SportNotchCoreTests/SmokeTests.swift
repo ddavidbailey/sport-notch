@@ -1,5 +1,5 @@
 import XCTest
-@testable import FootballNotchCore
+@testable import SportNotchCore
 
 final class SmokeTests: XCTestCase {
     func testTrue() { XCTAssertTrue(true) }

@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import FootballNotchCore
+import SportNotchCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {

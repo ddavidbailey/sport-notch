@@ -10,10 +10,10 @@ if [ ! -f "Resources/AppIcon.icns" ]; then
     swift scripts/make-appicon.swift
 fi
 
-APP="FootballNotch.app"
+APP="SportNotch.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp ".build/release/FootballNotch" "$APP/Contents/MacOS/FootballNotch"
+cp ".build/release/SportNotch" "$APP/Contents/MacOS/SportNotch"
 cp "Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 echo "Built $APP"

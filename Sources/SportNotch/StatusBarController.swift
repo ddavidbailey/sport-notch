@@ -18,7 +18,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         super.init()
 
         // Template image adapts to light/dark menu bars automatically.
-        let icon = NSImage(systemSymbolName: "soccerball", accessibilityDescription: "Football Notch")
+        let icon = NSImage(systemSymbolName: "soccerball", accessibilityDescription: "Sport Notch")
         icon?.isTemplate = true
         statusItem.button?.image = icon
 
@@ -29,7 +29,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(launchAtLoginItem)
         menu.addItem(.separator())
         let quitItem = NSMenuItem(
-            title: "Quit Football Notch",
+            title: "Quit Sport Notch",
             action: #selector(quit),
             keyEquivalent: "q")
         quitItem.target = self
@@ -49,7 +49,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         } catch {
             // Registration commonly throws for an unsigned app until the user
             // approves it under System Settings → General → Login Items.
-            NSLog("Football Notch: launch-at-login toggle failed: \(error)")
+            NSLog("Sport Notch: launch-at-login toggle failed: \(error)")
         }
         // Always reflect the real status, not the attempted state.
         syncLaunchAtLoginState()

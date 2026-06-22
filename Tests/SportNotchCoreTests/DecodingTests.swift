@@ -1,5 +1,5 @@
 import XCTest
-@testable import FootballNotchCore
+@testable import SportNotchCore
 
 final class DecodingTests: XCTestCase {
     func loadFixture(_ name: String) throws -> Data {

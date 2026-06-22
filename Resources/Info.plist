@@ -4,13 +4,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>FootballNotch</string>
+    <string>SportNotch</string>
     <key>CFBundleDisplayName</key>
-    <string>Football Notch</string>
+    <string>Sport Notch</string>
     <key>CFBundleIdentifier</key>
-    <string>com.davidbailey.footballnotch</string>
+    <string>com.davidbailey.sportnotch</string>
     <key>CFBundleExecutable</key>
-    <string>FootballNotch</string>
+    <string>SportNotch</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundlePackageType</key>

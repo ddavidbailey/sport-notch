@@ -1,7 +1,7 @@
 #!/usr/bin/env swift
 import AppKit
 
-// Generates the Football Notch app icon: a soccerball resting on a mown pitch,
+// Generates the Sport Notch app icon: a soccerball resting on a mown pitch,
 // inside the standard macOS rounded-rectangle body. Resolution-independent —
 // every size is drawn from scratch, not downscaled, so edges stay crisp.
 //

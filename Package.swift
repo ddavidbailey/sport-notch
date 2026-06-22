@@ -2,17 +2,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "FootballNotch",
+    name: "SportNotch",
     platforms: [.macOS(.v14)],
     targets: [
-        .target(name: "FootballNotchCore"),
+        .target(name: "SportNotchCore"),
         .executableTarget(
-            name: "FootballNotch",
-            dependencies: ["FootballNotchCore"]
+            name: "SportNotch",
+            dependencies: ["SportNotchCore"]
         ),
         .testTarget(
-            name: "FootballNotchCoreTests",
-            dependencies: ["FootballNotchCore"],
+            name: "SportNotchCoreTests",
+            dependencies: ["SportNotchCore"],
             resources: [.copy("Fixtures")]
         ),
     ]
