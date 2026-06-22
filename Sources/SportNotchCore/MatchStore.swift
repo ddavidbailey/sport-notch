@@ -16,6 +16,10 @@ public final class MatchStore: ObservableObject {
     /// another match (`select`) or that same match returns live (a transient blip).
     @Published public private(set) var finishedMatch: Match?
 
+    /// When true, the notch is collapsed to just the soccer-ball pill. Cleared by the
+    /// user reopening it (`restore`) or by a fresh kickoff (see `refresh`).
+    @Published public private(set) var isMinimized = false
+
     private let service: any FootballService
     private var goalToken = 0
 
@@ -58,6 +62,9 @@ public final class MatchStore: ObservableObject {
         followedMatchId = matchId
     }
 
+    public func minimize() { isMinimized = true }
+    public func restore() { isMinimized = false }
+
     /// Fetches live and upcoming matches, updating published state. Expects serial
     /// invocation — the app's poll loop awaits one refresh before the next.
     public func refresh() async {
@@ -88,6 +95,20 @@ public final class MatchStore: ObservableObject {
                let endedSnapshot = previousLive.first(where: { $0.id == shown.id && $0.isLive }),
                !live.contains(where: { $0.id == shown.id && $0.isLive }) {
                 finishedMatch = endedSnapshot.markedFinished()
+            }
+
+            // A fresh kickoff while minimized reopens the notch and follows the new
+            // match. "Fresh" means newly in play this refresh — a match that was already
+            // live and is merely continuing is not a kickoff edge, so it won't reopen.
+            if isMinimized {
+                let wasLive = Set(previousLive.filter(\.isLive).map(\.id))
+                if let kickoff = live
+                    .filter({ $0.isLive && !wasLive.contains($0.id) })
+                    .min(by: { $0.kickoff < $1.kickoff }) {
+                    finishedMatch = nil
+                    followedMatchId = kickoff.id
+                    isMinimized = false
+                }
             }
 
             // Drop a stale selection whose match has dropped out of both feeds.

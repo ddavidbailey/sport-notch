@@ -244,4 +244,53 @@ final class MatchStoreTests: XCTestCase {
         XCTAssertEqual(store.followedMatch?.id, "g")
         XCTAssertTrue(store.followedMatch?.isFinished ?? false)
     }
+
+    // MARK: - Minimize
+
+    func testMinimizeAndRestoreTogglesFlag() async {
+        let store = MatchStore(service: MockService(live: [match("a")]))
+        await store.refresh()
+        XCTAssertFalse(store.isMinimized)
+        store.minimize()
+        XCTAssertTrue(store.isMinimized)
+        store.restore()
+        XCTAssertFalse(store.isMinimized)
+    }
+
+    func testNewKickoffWhileMinimizedRestoresAndFollows() async {
+        let svc = MutableService(live: [liveMatch("a", 0, 0)], upcoming: [])
+        let store = MatchStore(service: svc)
+        await store.refresh()
+        store.minimize()
+        XCTAssertTrue(store.isMinimized)
+
+        svc.live = [liveMatch("a", 0, 0), liveMatch("b", 0, 0)]  // "b" kicks off
+        await store.refresh()
+
+        XCTAssertFalse(store.isMinimized)             // a fresh kickoff reopens the notch
+        XCTAssertEqual(store.followedMatch?.id, "b")  // and switches to the new game
+    }
+
+    func testRefreshWithoutNewKickoffStaysMinimized() async {
+        let svc = MutableService(live: [liveMatch("a", 0, 0)], upcoming: [])
+        let store = MatchStore(service: svc)
+        await store.refresh()
+        store.minimize()
+
+        await store.refresh()                         // identical live set, no kickoff
+
+        XCTAssertTrue(store.isMinimized)
+    }
+
+    func testAlreadyLiveMatchContinuingDoesNotRestore() async {
+        let svc = MutableService(live: [liveMatch("a", 0, 0)], upcoming: [])
+        let store = MatchStore(service: svc)
+        await store.refresh()
+        store.minimize()
+
+        svc.live = [liveMatch("a", 1, 0)]             // same match scores, still in play
+        await store.refresh()
+
+        XCTAssertTrue(store.isMinimized)              // a continuing game is not a new kickoff
+    }
 }
