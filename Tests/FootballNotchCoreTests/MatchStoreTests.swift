@@ -3,22 +3,23 @@ import XCTest
 
 private struct MockService: FootballService {
     var live: [Match] = []
-    var next: Match? = nil
+    var upcoming: [Match] = []
     var fail = false
     func fetchLiveMatches() async throws -> [Match] {
         if fail { throw URLError(.notConnectedToInternet) }
         return live
     }
-    func fetchNextMatch() async throws -> Match? { next }
+    func fetchUpcomingMatches() async throws -> [Match] { upcoming }
 }
 
 private func team(_ code: String) -> Team {
     Team(name: code, abbreviation: code, countryCode: code)
 }
-private func match(_ id: String, status: MatchStatus = .live) -> Match {
+private func match(_ id: String, status: MatchStatus = .live,
+                   kickoff: TimeInterval = 0) -> Match {
     Match(id: id, competitionId: "17", home: team("ECU"), away: team("CUW"),
           homeScore: 0, awayScore: 0, status: status, clock: "1'",
-          kickoff: Date(timeIntervalSince1970: 0))
+          kickoff: Date(timeIntervalSince1970: kickoff))
 }
 
 @MainActor
@@ -45,11 +46,49 @@ final class MatchStoreTests: XCTestCase {
         XCTAssertEqual(store.followedMatch?.id, "a")
     }
 
-    func testIdleFetchesNextMatch() async {
-        let store = MatchStore(service: MockService(live: [], next: match("n", status: .scheduled)))
+    func testFetchesUpcomingMatches() async {
+        let store = MatchStore(service: MockService(
+            live: [],
+            upcoming: [match("n", status: .scheduled, kickoff: 100)]))
         await store.refresh()
         XCTAssertTrue(store.liveMatches.isEmpty)
-        XCTAssertEqual(store.nextMatch?.id, "n")
+        XCTAssertEqual(store.upcomingMatches.map(\.id), ["n"])
+        XCTAssertEqual(store.followedMatch?.id, "n")
+    }
+
+    func testSelectableMatchesAreThreeSoonest() async {
+        let store = MatchStore(service: MockService(
+            live: [match("live", status: .live, kickoff: -100)],
+            upcoming: [
+                match("u1", status: .scheduled, kickoff: 100),
+                match("u2", status: .scheduled, kickoff: 200),
+                match("u3", status: .scheduled, kickoff: 300),
+            ]))
+        await store.refresh()
+        // Live match kicked off in the past, so it sorts first; only 3 are kept.
+        XCTAssertEqual(store.selectableMatches.map(\.id), ["live", "u1", "u2"])
+    }
+
+    func testSelectingUpcomingThenGoingLiveKeepsSelection() async {
+        let svc = MockService(
+            live: [],
+            upcoming: [match("u1", status: .scheduled, kickoff: 100)])
+        let store = MatchStore(service: svc)
+        await store.refresh()
+        store.select(matchId: "u1")
+        XCTAssertEqual(store.followedMatch?.id, "u1")
+        XCTAssertFalse(store.followedMatch?.isLive ?? true)
+
+        // The same fixture now appears live with a score.
+        let live = Match(id: "u1", competitionId: "17",
+                         home: team("ECU"), away: team("CUW"),
+                         homeScore: 2, awayScore: 1, status: .live,
+                         clock: "67'", kickoff: Date(timeIntervalSince1970: 100))
+        let store2 = MatchStore(service: MockService(live: [live], upcoming: []))
+        await store2.refresh()
+        store2.select(matchId: "u1")
+        XCTAssertEqual(store2.followedMatch?.homeScore, 2)
+        XCTAssertTrue(store2.followedMatch?.isLive ?? false)
     }
 
     func testErrorRetainsLastKnownData() async {
@@ -59,7 +98,7 @@ final class MatchStoreTests: XCTestCase {
                 if fail { throw URLError(.notConnectedToInternet) }
                 return [match("a")]
             }
-            func fetchNextMatch() async throws -> Match? { nil }
+            func fetchUpcomingMatches() async throws -> [Match] { [] }
         }
         let svc = ToggleMock()
         let store = MatchStore(service: svc)

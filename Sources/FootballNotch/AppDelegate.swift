@@ -12,11 +12,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory) // no Dock icon, agent app
         store = MatchStore(service: FIFAService())
         windowController = NotchWindowController(
-            rootView: NotchRootView(store: store, onResize: { [weak self] size in
-                // The first preference update can fire synchronously while the
-                // controller is still being constructed (before `windowController`
-                // is assigned). Defer so the resize runs once the property is set.
-                Task { @MainActor in self?.windowController?.resize(to: size) }
+            rootView: NotchRootView(store: store, onCardFrame: { [weak self] rect in
+                // The first geometry update can fire while the controller is still being
+                // constructed (before `windowController` is assigned); defer so it lands
+                // once the property is set.
+                Task { @MainActor in
+                    self?.windowController?.updateInteractiveRect(rect)
+                }
             }))
         startPolling()
     }

@@ -24,6 +24,30 @@ final class DecodingTests: XCTestCase {
         XCTAssertEqual(m.status, .live)
     }
 
+    func testDecodeCalendarHomeAwayKeys() throws {
+        // The calendar endpoint names teams `Home`/`Away` (vs the live feed's
+        // `HomeTeam`/`AwayTeam`). Both shapes must decode.
+        let json = """
+        {
+          "Results": [
+            {
+              "IdMatch": "400021500",
+              "IdCompetition": "17",
+              "MatchStatus": 0,
+              "Date": "2026-06-22T01:00:00Z",
+              "Home": { "Score": 0, "IdCountry": "NZL", "Abbreviation": "NZL", "TeamName": [{ "Description": "New Zealand" }] },
+              "Away": { "Score": 0, "IdCountry": "EGY", "Abbreviation": "EGY", "TeamName": [{ "Description": "Egypt" }] }
+            }
+          ]
+        }
+        """
+        let matches = try decodeLiveMatches(from: Data(json.utf8))
+        XCTAssertEqual(matches.count, 1)
+        XCTAssertEqual(matches.first?.home.abbreviation, "NZL")
+        XCTAssertEqual(matches.first?.away.name, "Egypt")
+        XCTAssertEqual(matches.first?.status, .scheduled)
+    }
+
     func testDecodeDropsUndecodableMatchButKeepsOthers() throws {
         // Spec §7: a single malformed element must be dropped, not abort the batch.
         let json = """

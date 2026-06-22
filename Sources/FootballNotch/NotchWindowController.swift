@@ -1,14 +1,31 @@
 import AppKit
 import SwiftUI
 
+/// Hosting view that only claims mouse events inside the visible card, letting clicks
+/// elsewhere in the (large, mostly transparent) overlay pass through to apps beneath.
+final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
+    var interactiveRect: CGRect = .zero
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let local = convert(point, from: superview)
+        guard interactiveRect.contains(local) else { return nil }
+        return super.hitTest(point)
+    }
+}
+
 @MainActor
 final class NotchWindowController {
     private let panel: NSPanel
+    private let hostingView: PassthroughHostingView<AnyView>
     private var screenObserver: NSObjectProtocol?
 
     init(rootView: some View) {
+        let hosting = PassthroughHostingView(rootView: AnyView(rootView))
+        hosting.sizingOptions = []
+        hostingView = hosting
+
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 80),
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 460),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: false)
         panel.level = .statusBar
@@ -18,10 +35,8 @@ final class NotchWindowController {
         panel.isMovable = false
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         panel.ignoresMouseEvents = false
-
-        let hosting = NSHostingView(rootView: rootView)
+        panel.acceptsMouseMovedEvents = true
         panel.contentView = hosting
-        panel.setContentSize(hosting.fittingSize)
 
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -35,21 +50,25 @@ final class NotchWindowController {
         panel.orderFrontRegardless()
     }
 
-    /// Resize the panel to fit the rendered SwiftUI content, then reposition.
-    func resize(to size: CGSize) {
-        guard size.width > 0, size.height > 0 else { return }
-        panel.setContentSize(size)
-        reposition()
+    /// The SwiftUI card reports its frame (in the overlay's coordinate space) so we can
+    /// restrict mouse interaction to the visible region.
+    func updateInteractiveRect(_ rect: CGRect) {
+        hostingView.interactiveRect = rect
     }
 
-    /// Center horizontally on the notch screen, pinned to the top edge.
-    func reposition() {
-        let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 })
-            ?? NSScreen.main
-        guard let screen else { return }
-        let size = panel.frame.size
-        let x = screen.frame.midX - size.width / 2
-        let y = screen.frame.maxY - size.height
-        panel.setFrameOrigin(NSPoint(x: x, y: y))
+    /// Size the fixed overlay to the target screen and pin it top-centered. The overlay
+    /// never resizes on hover — all expand/collapse animation happens inside SwiftUI.
+    private func reposition() {
+        guard let screen = NotchMetrics.targetScreen else { return }
+        let width = min(screen.frame.width, 600)
+        let height: CGFloat = 460
+        let frame = NSRect(
+            x: screen.frame.midX - width / 2,
+            y: screen.frame.maxY - height,
+            width: width,
+            height: height
+        )
+        panel.setFrame(frame, display: true)
+        hostingView.frame = NSRect(origin: .zero, size: frame.size)
     }
 }

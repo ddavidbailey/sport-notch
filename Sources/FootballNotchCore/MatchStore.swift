@@ -6,7 +6,7 @@ public enum ConnectionState: Equatable, Sendable { case fresh, stale, error }
 @MainActor
 public final class MatchStore: ObservableObject {
     @Published public private(set) var liveMatches: [Match] = []
-    @Published public private(set) var nextMatch: Match?
+    @Published public private(set) var upcomingMatches: [Match] = []
     @Published public private(set) var followedMatchId: String?
     @Published public private(set) var connection: ConnectionState = .fresh
 
@@ -16,34 +16,56 @@ public final class MatchStore: ObservableObject {
         self.service = service
     }
 
-    /// The followed match, defaulting to the first live match when none chosen.
+    /// All known matches, live ones first. Live matches kicked off in the past so they
+    /// sort ahead of upcoming fixtures.
+    private var allMatches: [Match] { liveMatches + upcomingMatches }
+
+    /// The 3 soonest matches (live + upcoming), earliest kickoff first, de-duplicated.
+    /// A match keeps its identity as it transitions from upcoming to live, so the user's
+    /// selection survives kickoff.
+    public var selectableMatches: [Match] {
+        var seen = Set<String>()
+        return allMatches
+            .enumerated()
+            .sorted { ($0.element.kickoff, $0.offset) < ($1.element.kickoff, $1.offset) }
+            .map(\.element)
+            .filter { seen.insert($0.id).inserted }
+            .prefix(3)
+            .map { $0 }
+    }
+
+    /// The match the user is following: the explicit selection if it still exists,
+    /// otherwise the soonest match. Resolves to the live copy (with score) once the
+    /// selected fixture kicks off.
     public var followedMatch: Match? {
-        liveMatches.first { $0.id == followedMatchId } ?? liveMatches.first
+        if let id = followedMatchId, let match = allMatches.first(where: { $0.id == id }) {
+            return match
+        }
+        return selectableMatches.first
     }
 
     public func select(matchId: String) {
-        guard liveMatches.contains(where: { $0.id == matchId }) else { return }
+        guard allMatches.contains(where: { $0.id == matchId }) else { return }
         followedMatchId = matchId
     }
 
-    /// Fetches live matches (and the next match when idle), updating published state.
-    /// Expects serial invocation — the app's poll loop awaits one refresh before the
-    /// next, so there is no guard against overlapping calls.
+    /// Fetches live and upcoming matches, updating published state. Expects serial
+    /// invocation — the app's poll loop awaits one refresh before the next.
     public func refresh() async {
         do {
             let live = try await service.fetchLiveMatches()
+            let upcoming = try await service.fetchUpcomingMatches()
             liveMatches = live
+            upcomingMatches = upcoming
 
-            if let id = followedMatchId, !live.contains(where: { $0.id == id }) {
-                followedMatchId = live.first?.id
-            } else if followedMatchId == nil {
-                followedMatchId = live.first?.id
+            // Drop a stale selection whose match has dropped out of both feeds.
+            if let id = followedMatchId,
+               !(live + upcoming).contains(where: { $0.id == id }) {
+                followedMatchId = nil
             }
-
-            nextMatch = live.isEmpty ? try await service.fetchNextMatch() : nil
             connection = .fresh
         } catch {
-            connection = .error // keep last known liveMatches/nextMatch
+            connection = .error // keep last known live/upcoming matches
         }
     }
 }

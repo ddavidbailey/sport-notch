@@ -54,7 +54,26 @@ struct FIFAMatchDTO: Decodable {
         case date = "Date"
         case homeTeam = "HomeTeam"
         case awayTeam = "AwayTeam"
+        // The calendar endpoint names the teams `Home`/`Away`; the live endpoint uses
+        // `HomeTeam`/`AwayTeam`. We accept either so both feeds decode.
+        case home = "Home"
+        case away = "Away"
     }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        idMatch = try c.decode(String.self, forKey: .idMatch)
+        idCompetition = try c.decode(String.self, forKey: .idCompetition)
+        matchStatus = try c.decodeIfPresent(Int.self, forKey: .matchStatus)
+        period = try c.decodeIfPresent(Int.self, forKey: .period)
+        matchTime = try c.decodeIfPresent(String.self, forKey: .matchTime)
+        date = try c.decodeIfPresent(String.self, forKey: .date)
+        homeTeam = try c.decodeIfPresent(FIFATeamDTO.self, forKey: .homeTeam)
+            ?? c.decode(FIFATeamDTO.self, forKey: .home)
+        awayTeam = try c.decodeIfPresent(FIFATeamDTO.self, forKey: .awayTeam)
+            ?? c.decode(FIFATeamDTO.self, forKey: .away)
+    }
+
     func toDomain() -> Match {
         Match(id: idMatch,
               competitionId: idCompetition,

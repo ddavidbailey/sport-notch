@@ -1,138 +1,202 @@
 import SwiftUI
 import FootballNotchCore
 
-enum NotchScreen { case collapsed, expanded, menu }
-
-private struct ContentSizeKey: PreferenceKey {
-    static let defaultValue: CGSize = .zero
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
-        value = nextValue()
-    }
-}
+private let notchAnimation = Animation.spring(response: 0.34, dampingFraction: 0.82)
 
 struct NotchRootView: View {
     @ObservedObject var store: MatchStore
-    @State private var screen: NotchScreen = .collapsed
-    var onResize: (CGSize) -> Void = { _ in }
+    @State private var expanded = false
+    @State private var metrics = NotchMetrics.fallback
+    var onCardFrame: (CGRect) -> Void = { _ in }
 
-    var body: some View {
-        content
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color.black.opacity(0.85))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .foregroundStyle(.white)
-            .onHover { inside in
-                guard screen != .menu else { return }
-                screen = inside ? .expanded : .collapsed
-            }
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(key: ContentSizeKey.self, value: proxy.size)
-                }
-            )
-            .onPreferenceChange(ContentSizeKey.self) { size in
-                MainActor.assumeIsolated { onResize(size) }
-            }
+    private var topCornerRadius: CGFloat { expanded ? 15 : 7 }
+    private var bottomCornerRadius: CGFloat { expanded ? 22 : 14 }
+    private var topContentInset: CGFloat { metrics.hasNotch ? metrics.height : 8 }
+
+    private var shape: AnyShape {
+        if metrics.hasNotch {
+            return AnyShape(NotchShape(topCornerRadius: topCornerRadius,
+                                       bottomCornerRadius: bottomCornerRadius))
+        }
+        return AnyShape(RoundedBottomRectangle(radius: expanded ? 20 : 14))
     }
 
-    @ViewBuilder private var content: some View {
-        switch screen {
-        case .collapsed:
-            ScoreStrip(match: store.followedMatch, next: store.nextMatch)
-        case .expanded:
-            ExpandedView(match: store.followedMatch,
-                         next: store.nextMatch,
-                         openMenu: { screen = .menu })
-        case .menu:
-            MenuView(matches: store.liveMatches,
-                     select: { store.select(matchId: $0); screen = .expanded },
-                     back: { screen = .expanded })
+    var body: some View {
+        ZStack(alignment: .top) {
+            Color.clear
+            card
+                .background(
+                    GeometryReader { proxy in
+                        let frame = proxy.frame(in: .named("overlay"))
+                        Color.clear
+                            .onAppear { onCardFrame(frame) }
+                            .onChange(of: frame) { _, new in onCardFrame(new) }
+                    }
+                )
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .coordinateSpace(name: "overlay")
+        .onAppear { metrics = NotchMetrics.current }
+    }
+
+    private var card: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            FollowedMatchView(match: store.followedMatch, expanded: expanded)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            if expanded {
+                SelectionList(
+                    matches: store.selectableMatches,
+                    selectedId: store.followedMatch?.id,
+                    select: { store.select(matchId: $0) }
+                )
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, topContentInset + 4)
+        .padding(.bottom, expanded ? 14 : 8)
+        .frame(minWidth: max(metrics.width, 120))
+        .fixedSize()
+        .background(Color.black, in: shape)
+        .overlay {
+            if !metrics.hasNotch {
+                shape.stroke(Color.white.opacity(0.08), lineWidth: 1)
+            }
+        }
+        .clipShape(shape)
+        .shadow(color: .black.opacity(expanded ? 0.45 : 0.2),
+                radius: expanded ? 12 : 4, y: 2)
+        .foregroundStyle(.white)
+        .contentShape(shape)
+        .onHover { inside in
+            withAnimation(notchAnimation) { expanded = inside }
+        }
+        .animation(notchAnimation, value: expanded)
     }
 }
 
-struct ScoreStrip: View {
+/// The match the user is following: score once live, otherwise a kickoff countdown.
+struct FollowedMatchView: View {
     let match: Match?
-    let next: Match?
+    let expanded: Bool
 
     var body: some View {
-        if let m = match {
-            HStack(spacing: 6) {
-                Text(m.home.flag); Text(m.home.abbreviation).bold()
-                Text("\(m.homeScore)").bold()
-                Text("–")
-                Text("\(m.awayScore)").bold()
-                Text(m.away.abbreviation).bold(); Text(m.away.flag)
-            }
-            .font(.system(size: 13))
-        } else if let n = next {
-            TimelineView(.periodic(from: .now, by: 1)) { ctx in
-                HStack(spacing: 6) {
-                    Text(n.home.flag); Text(n.home.abbreviation)
-                    Text(countdownString(to: n.kickoff, now: ctx.date))
-                        .monospacedDigit()
-                    Text(n.away.abbreviation); Text(n.away.flag)
+        if let match {
+            VStack(spacing: 5) {
+                TeamsRow(match: match, showScore: match.isLive)
+
+                if match.isLive {
+                    if expanded, !match.clock.isEmpty {
+                        Text(match.clock)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.green)
+                    }
+                } else {
+                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                        Text(countdownString(to: match.kickoff, now: ctx.date))
+                            .font(.system(size: expanded ? 16 : 13, weight: .semibold))
+                            .monospacedDigit()
+                    }
                 }
-                .font(.system(size: 13))
             }
         } else {
-            Text("No live matches")
-                .font(.system(size: 12))
+            Text("No upcoming matches")
+                .font(.system(size: 13))
                 .foregroundStyle(.secondary)
         }
     }
 }
 
-struct ExpandedView: View {
-    let match: Match?
-    let next: Match?
-    let openMenu: () -> Void
-
-    var body: some View {
-        VStack(spacing: 4) {
-            ScoreStrip(match: match, next: next)
-            HStack {
-                if let m = match {
-                    Text(m.clock).font(.system(size: 12, weight: .semibold))
-                }
-                Spacer()
-                Button(action: openMenu) {
-                    Image(systemName: "list.bullet")
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-}
-
-struct MenuView: View {
+/// The selection area: the soonest matches, tap to follow. Highlights the current pick.
+struct SelectionList: View {
     let matches: [Match]
+    let selectedId: String?
     let select: (String) -> Void
-    let back: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Button(action: back) { Image(systemName: "chevron.left") }
-                    .buttonStyle(.plain)
-                Text("Live matches").font(.caption).bold()
-            }
+            Text("Soonest matches")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .padding(.leading, 8)
+                .padding(.bottom, 2)
+
             if matches.isEmpty {
-                Text("No live matches").font(.caption)
+                Text("No matches scheduled")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
             } else {
                 ForEach(matches) { m in
                     Button { select(m.id) } label: {
-                        HStack(spacing: 4) {
-                            Text(m.home.flag); Text(m.home.abbreviation)
-                            Text("\(m.homeScore)–\(m.awayScore)").bold()
-                            Text(m.away.abbreviation); Text(m.away.flag)
-                        }
-                        .font(.system(size: 12))
+                        SelectionRow(match: m, isSelected: m.id == selectedId)
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct SelectionRow: View {
+    let match: Match
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            TeamsRow(match: match, showScore: match.isLive)
+
+            Spacer(minLength: 12)
+
+            if match.isLive {
+                Text("LIVE")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.green)
+            } else {
+                TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                    Text(countdownString(to: match.kickoff, now: ctx.date))
+                        .font(.system(size: 11, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isSelected ? Color.white.opacity(0.16) : .clear)
+        }
+        .contentShape(Rectangle())
+    }
+}
+
+/// Flags + abbreviations, optionally with the score between teams.
+struct TeamsRow: View {
+    let match: Match
+    let showScore: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(match.home.flag)
+            Text(match.home.abbreviation).fontWeight(.semibold)
+
+            if showScore {
+                Text("\(match.homeScore)").bold()
+                Text("–").foregroundStyle(.secondary)
+                Text("\(match.awayScore)").bold()
+            } else {
+                Text("vs").font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+
+            Text(match.away.abbreviation).fontWeight(.semibold)
+            Text(match.away.flag)
+        }
+        .font(.system(size: 13))
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
     }
 }

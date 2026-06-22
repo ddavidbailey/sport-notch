@@ -2,7 +2,7 @@ import Foundation
 
 public protocol FootballService: Sendable {
     func fetchLiveMatches() async throws -> [Match]
-    func fetchNextMatch() async throws -> Match?
+    func fetchUpcomingMatches() async throws -> [Match]
 }
 
 public protocol DataFetching: Sendable {
@@ -25,6 +25,17 @@ public func nextMatch(from matches: [Match], now: Date) -> Match? {
         .min { $0.kickoff < $1.kickoff }
 }
 
+/// The soonest upcoming matches (kickoff strictly after `now`), earliest first.
+/// Ordered by kickoff for the same reason as `nextMatch`: calendar status codes are
+/// not chronologically reliable.
+public func upcomingMatches(from matches: [Match], now: Date, count: Int = 3) -> [Match] {
+    matches
+        .filter { $0.kickoff > now }
+        .sorted { $0.kickoff < $1.kickoff }
+        .prefix(count)
+        .map { $0 }
+}
+
 /// 2026 World Cup season id (verified against api.fifa.com on 2026-06-21). The
 /// competitions/seasons endpoint isn't reachable to derive this at runtime, so it is
 /// pinned here and must be updated for a future tournament.
@@ -40,23 +51,19 @@ public struct FIFAService: FootballService {
     private static let liveURL = URL(string:
         "https://api.fifa.com/api/v3/live/football/now?language=en")!
 
-    /// Formats the outgoing `from` query parameter (distinct from the DTO parser's formatter).
-    private nonisolated(unsafe) static let iso = ISO8601DateFormatter()
-
-    private static func nextMatchURL(now: Date) -> URL {
-        let from = iso.string(from: now)
-        return URL(string:
-            "https://api.fifa.com/api/v3/calendar/matches?idCompetition=\(worldCupCompetitionId)&idSeason=\(worldCupSeasonId)&from=\(from)&count=20&language=en")!
-    }
+    /// The full World Cup calendar. The API's `from=` parameter returns a null payload,
+    /// and a small `count` only reaches the tournament's opening matches, so we pull the
+    /// whole schedule (104 matches) once and filter to the soonest fixtures locally.
+    private static let calendarURL = URL(string:
+        "https://api.fifa.com/api/v3/calendar/matches?idCompetition=\(worldCupCompetitionId)&idSeason=\(worldCupSeasonId)&count=120&language=en")!
 
     public func fetchLiveMatches() async throws -> [Match] {
         let data = try await fetcher.data(from: Self.liveURL)
         return try decodeLiveMatches(from: data)
     }
 
-    public func fetchNextMatch() async throws -> Match? {
-        let now = Date()
-        let data = try await fetcher.data(from: Self.nextMatchURL(now: now))
-        return nextMatch(from: try decodeLiveMatches(from: data), now: now)
+    public func fetchUpcomingMatches() async throws -> [Match] {
+        let data = try await fetcher.data(from: Self.calendarURL)
+        return upcomingMatches(from: try decodeLiveMatches(from: data), now: Date())
     }
 }
