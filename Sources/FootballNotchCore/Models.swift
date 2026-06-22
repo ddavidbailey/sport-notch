@@ -41,6 +41,7 @@ public struct Match: Equatable, Identifiable, Sendable {
     public let kickoff: Date
 
     public var isLive: Bool { status == .live || status == .halftime }
+    public var isFinished: Bool { status == .finished }
 
     public init(id: String, competitionId: String, home: Team, away: Team,
                 homeScore: Int, awayScore: Int, status: MatchStatus,
@@ -54,5 +55,13 @@ public struct Match: Equatable, Identifiable, Sendable {
         self.status = status
         self.clock = clock
         self.kickoff = kickoff
+    }
+
+    /// A copy marked `.finished`, for retaining a match's final score once it leaves the
+    /// live feed. Score, teams, and kickoff are preserved; only the status changes.
+    public func markedFinished() -> Match {
+        Match(id: id, competitionId: competitionId, home: home, away: away,
+              homeScore: homeScore, awayScore: awayScore, status: .finished,
+              clock: clock, kickoff: kickoff)
     }
 }

@@ -150,4 +150,98 @@ final class MatchStoreTests: XCTestCase {
         await store.refresh()
         XCTAssertTrue(store.goalFlashes.isEmpty)
     }
+
+    func testFollowedLiveMatchEndingShowsFinalScore() async {
+        let svc = MutableService(live: [liveMatch("g", 2, 1)], upcoming: [])
+        let store = MatchStore(service: svc)
+        await store.refresh()                       // live 2–1
+        XCTAssertTrue(store.followedMatch?.isLive ?? false)
+
+        svc.live = []                               // match ends, drops from /now
+        await store.refresh()
+
+        XCTAssertEqual(store.followedMatch?.id, "g")
+        XCTAssertEqual(store.followedMatch?.homeScore, 2)
+        XCTAssertEqual(store.followedMatch?.awayScore, 1)
+        XCTAssertEqual(store.followedMatch?.status, .finished)
+        XCTAssertTrue(store.followedMatch?.isFinished ?? false)
+    }
+
+    func testSelectingAnotherMatchClearsFinal() async {
+        let svc = MutableService(live: [liveMatch("g", 2, 1)],
+                                 upcoming: [match("n", status: .scheduled, kickoff: 100)])
+        let store = MatchStore(service: svc)
+        await store.refresh()
+        svc.live = []                               // "g" ends -> FINAL
+        await store.refresh()
+        XCTAssertTrue(store.followedMatch?.isFinished ?? false)
+
+        store.select(matchId: "n")                  // switch dismisses FINAL
+        XCTAssertNil(store.finishedMatch)
+        XCTAssertEqual(store.followedMatch?.id, "n")
+    }
+
+    func testLingeringNonLiveEntryCountsAsFinished() async {
+        let svc = MutableService(live: [liveMatch("g", 2, 1)], upcoming: [])
+        let store = MatchStore(service: svc)
+        await store.refresh()
+        // The feed keeps the match for a poll but flips it out of "in play".
+        svc.live = [Match(id: "g", competitionId: "17", home: team("ECU"), away: team("CUW"),
+                          homeScore: 2, awayScore: 1, status: .unknown, clock: "FT",
+                          kickoff: Date(timeIntervalSince1970: 0))]
+        await store.refresh()
+        XCTAssertEqual(store.followedMatch?.status, .finished)
+        XCTAssertEqual(store.followedMatch?.homeScore, 2)
+    }
+
+    func testFinalSelfHealsIfMatchReappearsLive() async {
+        let svc = MutableService(live: [liveMatch("g", 2, 1)], upcoming: [])
+        let store = MatchStore(service: svc)
+        await store.refresh()
+        svc.live = []                               // transient drop -> FINAL
+        await store.refresh()
+        XCTAssertTrue(store.followedMatch?.isFinished ?? false)
+
+        svc.live = [liveMatch("g", 2, 1)]           // it was just a blip; back in play
+        await store.refresh()
+        XCTAssertNil(store.finishedMatch)
+        XCTAssertTrue(store.followedMatch?.isLive ?? false)
+    }
+
+    func testFollowedNonLiveFeedEntryDoesNotFinish() async {
+        // A scheduled fixture can appear in the live feed; if it is followed and then
+        // drops without ever being in play, it must not be retained as FINAL.
+        let svc = MutableService(live: [match("s", status: .scheduled, kickoff: 0)], upcoming: [])
+        let store = MatchStore(service: svc)
+        await store.refresh()
+        XCTAssertEqual(store.followedMatch?.id, "s")
+        svc.live = []
+        await store.refresh()
+        XCTAssertNil(store.finishedMatch)
+    }
+
+    func testAutoFollowedMatchEndingSticksOverUpcoming() async {
+        // No explicit selection: a live match that ends keeps showing FINAL rather than
+        // jumping to the next upcoming fixture.
+        let svc = MutableService(live: [liveMatch("g", 3, 0)],
+                                 upcoming: [match("n", status: .scheduled, kickoff: 100)])
+        let store = MatchStore(service: svc)
+        await store.refresh()
+        svc.live = []
+        await store.refresh()
+        XCTAssertEqual(store.followedMatch?.id, "g")
+        XCTAssertTrue(store.followedMatch?.isFinished ?? false)
+    }
+
+    func testFinalPersistsAcrossLaterRefreshes() async {
+        let svc = MutableService(live: [liveMatch("g", 1, 0)], upcoming: [])
+        let store = MatchStore(service: svc)
+        await store.refresh()
+        svc.live = []
+        await store.refresh()
+        await store.refresh()                       // still gone, several polls later
+        await store.refresh()
+        XCTAssertEqual(store.followedMatch?.id, "g")
+        XCTAssertTrue(store.followedMatch?.isFinished ?? false)
+    }
 }

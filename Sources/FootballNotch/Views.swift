@@ -108,7 +108,7 @@ struct FollowedMatchView: View {
         if let match {
             VStack(spacing: 5) {
                 ZStack {
-                    TeamsRow(match: match, showScore: match.isLive)
+                    TeamsRow(match: match, showScore: match.isLive || match.isFinished)
 
                     if let shownGoal {
                         GoalBadge(delta: shownGoal.delta, side: shownGoal.side)
@@ -129,7 +129,11 @@ struct FollowedMatchView: View {
                     }
                 }
 
-                if match.isLive {
+                if match.isFinished {
+                    Text("FINAL")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.green)
+                } else if match.isLive {
                     if !match.clock.isEmpty {
                         Text(match.clock)
                             .font(.system(size: 12, weight: .semibold))

@@ -11,6 +11,11 @@ public final class MatchStore: ObservableObject {
     @Published public private(set) var connection: ConnectionState = .fresh
     @Published public private(set) var goalFlashes: [String: GoalFlash] = [:]
 
+    /// The followed match retained with its final score after it left the live feed.
+    /// Takes precedence as the displayed match and persists until the user selects
+    /// another match (`select`) or that same match returns live (a transient blip).
+    @Published public private(set) var finishedMatch: Match?
+
     private let service: any FootballService
     private var goalToken = 0
 
@@ -40,6 +45,7 @@ public final class MatchStore: ObservableObject {
     /// otherwise the soonest match. Resolves to the live copy (with score) once the
     /// selected fixture kicks off.
     public var followedMatch: Match? {
+        if let finishedMatch { return finishedMatch }
         if let id = followedMatchId, let match = allMatches.first(where: { $0.id == id }) {
             return match
         }
@@ -48,6 +54,7 @@ public final class MatchStore: ObservableObject {
 
     public func select(matchId: String) {
         guard allMatches.contains(where: { $0.id == matchId }) else { return }
+        finishedMatch = nil           // switching matches dismisses a retained FINAL
         followedMatchId = matchId
     }
 
@@ -58,12 +65,29 @@ public final class MatchStore: ObservableObject {
             let live = try await service.fetchLiveMatches()
             let upcoming = try await service.fetchUpcomingMatches()
             let previousLive = liveMatches
+            let previouslyDisplayed = followedMatch
             liveMatches = live
             upcomingMatches = upcoming
 
             for goal in detectGoals(previous: previousLive, current: live) {
                 goalToken += 1
                 goalFlashes[goal.matchId] = GoalFlash(side: goal.side, delta: goal.delta, token: goalToken)
+            }
+
+            // Self-heal: a retained match that reappears in play was a transient feed drop,
+            // not an ending — let it resume showing live.
+            if let finished = finishedMatch,
+               live.contains(where: { $0.id == finished.id && $0.isLive }) {
+                finishedMatch = nil
+            }
+
+            // Retain the displayed match's final score when it leaves the live feed. The
+            // previous live snapshot carries the score; FINAL then persists until the user
+            // selects another match.
+            if finishedMatch == nil, let shown = previouslyDisplayed,
+               let endedSnapshot = previousLive.first(where: { $0.id == shown.id && $0.isLive }),
+               !live.contains(where: { $0.id == shown.id && $0.isLive }) {
+                finishedMatch = endedSnapshot.markedFinished()
             }
 
             // Drop a stale selection whose match has dropped out of both feeds.
