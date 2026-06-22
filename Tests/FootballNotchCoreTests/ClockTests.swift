@@ -52,4 +52,24 @@ final class ClockTests: XCTestCase {
                          kickoff: Date(timeIntervalSince1970: 500))
         XCTAssertNil(nextMatch(from: [past], now: now))
     }
+
+    func testKickoffSameDayShowsTimeOnly() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let now = cal.date(from: DateComponents(year: 2026, month: 6, day: 22, hour: 12))!
+        let kickoff = cal.date(from: DateComponents(year: 2026, month: 6, day: 22, hour: 21))!
+        let result = kickoffString(kickoff, now: now, calendar: cal, locale: Locale(identifier: "en_US"))
+            .replacingOccurrences(of: "\u{202F}", with: " ")
+        XCTAssertEqual(result, "9:00 PM")
+    }
+
+    func testKickoffOtherDayPrefixesWeekday() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let now = cal.date(from: DateComponents(year: 2026, month: 6, day: 22, hour: 12))!   // Monday
+        let kickoff = cal.date(from: DateComponents(year: 2026, month: 6, day: 23, hour: 21))! // Tuesday
+        let result = kickoffString(kickoff, now: now, calendar: cal, locale: Locale(identifier: "en_US"))
+            .replacingOccurrences(of: "\u{202F}", with: " ")
+        XCTAssertEqual(result, "Tue 9:00 PM")
+    }
 }
