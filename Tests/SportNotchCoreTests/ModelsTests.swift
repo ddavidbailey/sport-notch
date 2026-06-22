@@ -21,5 +21,9 @@ final class ModelsTests: XCTestCase {
         XCTAssertTrue(live.isLive)
         XCTAssertTrue(halftime.isLive)
         XCTAssertFalse(sched.isLive)
+
+        XCTAssertTrue(halftime.isHalftime)
+        XCTAssertFalse(live.isHalftime)
+        XCTAssertFalse(sched.isHalftime)
     }
 }

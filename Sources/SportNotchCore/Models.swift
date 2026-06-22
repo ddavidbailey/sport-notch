@@ -4,12 +4,15 @@ public enum MatchStatus: Equatable, Sendable {
     case scheduled, live, halftime, finished, abandoned, unknown
 
     /// Maps FIFA's undocumented numeric codes to a domain status. Confirmed against
-    /// the live feed: 0 = not-started (scheduled), 3 = live. Other codes (including the
-    /// calendar's unreliable values) degrade to `.unknown` rather than guessing.
+    /// the live feed: 0 = not-started (scheduled), 3 = live. While a match is live the
+    /// `period` distinguishes the half-time break (4) from play (3 = first half,
+    /// 5 = second half); the feed nulls MatchTime during the break, so this is the only
+    /// reliable half-time signal. Other codes (including the calendar's unreliable
+    /// values) degrade to `.unknown` rather than guessing.
     public init(matchStatus: Int, period: Int) {
         switch matchStatus {
         case 0: self = .scheduled
-        case 3: self = .live
+        case 3: self = period == 4 ? .halftime : .live
         default: self = .unknown
         }
     }
@@ -41,6 +44,7 @@ public struct Match: Equatable, Identifiable, Sendable {
     public let kickoff: Date
 
     public var isLive: Bool { status == .live || status == .halftime }
+    public var isHalftime: Bool { status == .halftime }
     public var isFinished: Bool { status == .finished }
 
     public init(id: String, competitionId: String, home: Team, away: Team,
