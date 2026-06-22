@@ -1,12 +1,19 @@
 public enum Flag {
-    /// FIFA/IOC 3-letter code -> ISO 3166-1 alpha-2. Starter subset; complete for
-    /// every participating nation during implementation (spec §9). FIFA and ISO
-    /// codes differ, so this must be an explicit map, not truncation.
+    /// FIFA/IOC 3-letter code -> ISO 3166-1 alpha-2. Covers every nation in the 2026
+    /// World Cup calendar feed (verified against api.fifa.com on 2026-06-21), plus a few
+    /// non-qualifiers (e.g. ITA) retained harmlessly. FIFA and ISO codes differ, so this
+    /// must be an explicit map, not truncation; the home nations below are the exception.
     static let isoByFifaCode: [String: String] = [
         "ECU": "EC", "CUW": "CW", "GER": "DE", "FRA": "FR", "BRA": "BR",
         "ARG": "AR", "ESP": "ES", "USA": "US", "MEX": "MX", "POR": "PT",
         "NED": "NL", "BEL": "BE", "CRO": "HR", "JPN": "JP", "SUI": "CH",
         "ITA": "IT", "URU": "UY", "COL": "CO", "SEN": "SN", "MAR": "MA",
+        "ALG": "DZ", "AUS": "AU", "AUT": "AT", "BIH": "BA", "CAN": "CA",
+        "CIV": "CI", "COD": "CD", "CPV": "CV", "CZE": "CZ", "EGY": "EG",
+        "GHA": "GH", "HAI": "HT", "IRN": "IR", "IRQ": "IQ", "JOR": "JO",
+        "KOR": "KR", "KSA": "SA", "NOR": "NO", "NZL": "NZ", "PAN": "PA",
+        "PAR": "PY", "QAT": "QA", "RSA": "ZA", "SWE": "SE", "TUN": "TN",
+        "TUR": "TR", "UZB": "UZ",
     ]
 
     /// Home nations are not ISO countries; map to the GB subdivision tag string.

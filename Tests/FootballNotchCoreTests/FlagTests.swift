@@ -22,4 +22,24 @@ final class FlagTests: XCTestCase {
         let scalars = Flag.emoji(forCountryCode: "ger").unicodeScalars.map { $0.value }
         XCTAssertEqual(scalars, [0x1F1E9, 0x1F1EA])
     }
+
+    func testNewlyMappedNationFlag() {
+        // TUN -> TN -> regional indicators T (U+1F1F9) + N (U+1F1F3)
+        let scalars = Flag.emoji(forCountryCode: "TUN").unicodeScalars.map { $0.value }
+        XCTAssertEqual(scalars, [0x1F1F9, 0x1F1F3])
+    }
+
+    func testAllWorldCup2026NationsHaveFlags() {
+        // Every nation in the 2026 World Cup calendar feed (verified against
+        // api.fifa.com on 2026-06-21) must resolve to a flag — spec §9 required
+        // completing the starter subset for all participating nations.
+        let codes = ["ALG", "ARG", "AUS", "AUT", "BEL", "BIH", "BRA", "CAN", "CIV",
+                     "COD", "COL", "CPV", "CRO", "CUW", "CZE", "ECU", "EGY", "ENG",
+                     "ESP", "FRA", "GER", "GHA", "HAI", "IRN", "IRQ", "JOR", "JPN",
+                     "KOR", "KSA", "MAR", "MEX", "NED", "NOR", "NZL", "PAN", "PAR",
+                     "POR", "QAT", "RSA", "SCO", "SEN", "SUI", "SWE", "TUN", "TUR",
+                     "URU", "USA", "UZB"]
+        let missing = codes.filter { Flag.emoji(forCountryCode: $0).isEmpty }
+        XCTAssertEqual(missing, [], "Unmapped World Cup nations: \(missing)")
+    }
 }
