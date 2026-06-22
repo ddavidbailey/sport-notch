@@ -87,16 +87,23 @@ struct FollowedMatchView: View {
                 TeamsRow(match: match, showScore: match.isLive)
 
                 if match.isLive {
-                    if expanded, !match.clock.isEmpty {
+                    if !match.clock.isEmpty {
                         Text(match.clock)
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(.green)
                     }
                 } else {
-                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
-                        Text(countdownString(to: match.kickoff, now: ctx.date))
-                            .font(.system(size: expanded ? 16 : 13, weight: .semibold))
-                            .monospacedDigit()
+                    VStack(spacing: 2) {
+                        if expanded {
+                            TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                                Text(countdownString(to: match.kickoff, now: ctx.date))
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .monospacedDigit()
+                            }
+                        }
+                        Text(kickoffString(match.kickoff, now: Date()))
+                            .font(.system(size: expanded ? 12 : 13, weight: .medium))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
