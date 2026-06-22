@@ -3,6 +3,22 @@ import FootballNotchCore
 
 private let notchAnimation = Animation.spring(response: 0.34, dampingFraction: 0.82)
 
+/// A transient green "+N" that animates in beside the team that just scored.
+struct GoalBadge: View {
+    let delta: Int
+    let side: GoalSide
+
+    var body: some View {
+        Text("+\(delta)")
+            .font(.system(size: 14, weight: .heavy))
+            .foregroundStyle(.green)
+            .frame(maxWidth: .infinity,
+                   alignment: side == .home ? .leading : .trailing)
+            .offset(y: -16)
+            .transition(.scale.combined(with: .opacity).combined(with: .move(edge: .top)))
+    }
+}
+
 struct NotchRootView: View {
     @ObservedObject var store: MatchStore
     @State private var expanded = false
@@ -41,7 +57,9 @@ struct NotchRootView: View {
 
     private var card: some View {
         VStack(alignment: .leading, spacing: 10) {
-            FollowedMatchView(match: store.followedMatch, expanded: expanded)
+            FollowedMatchView(match: store.followedMatch,
+                              expanded: expanded,
+                              goalFlash: store.followedMatch.flatMap { store.goalFlashes[$0.id] })
                 .frame(maxWidth: .infinity, alignment: .center)
 
             if expanded {
@@ -80,11 +98,36 @@ struct NotchRootView: View {
 struct FollowedMatchView: View {
     let match: Match?
     let expanded: Bool
+    var goalFlash: GoalFlash? = nil
+
+    @State private var shownGoal: GoalFlash?
+    @State private var lastShownToken = 0
+    @State private var clearTask: Task<Void, Never>?
 
     var body: some View {
         if let match {
             VStack(spacing: 5) {
-                TeamsRow(match: match, showScore: match.isLive)
+                ZStack {
+                    TeamsRow(match: match, showScore: match.isLive)
+
+                    if let shownGoal {
+                        GoalBadge(delta: shownGoal.delta, side: shownGoal.side)
+                    }
+                }
+                .onChange(of: goalFlash?.token) { _, newToken in
+                    guard let flash = goalFlash, let token = newToken, token > lastShownToken else { return }
+                    lastShownToken = token
+                    clearTask?.cancel()
+                    withAnimation(notchAnimation) {
+                        shownGoal = flash
+                    }
+                    clearTask = Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 2_500_000_000)
+                        withAnimation(notchAnimation) {
+                            shownGoal = nil
+                        }
+                    }
+                }
 
                 if match.isLive {
                     if !match.clock.isEmpty {
