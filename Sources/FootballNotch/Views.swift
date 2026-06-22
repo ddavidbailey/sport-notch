@@ -21,9 +21,13 @@ struct GoalBadge: View {
 
 struct NotchRootView: View {
     @ObservedObject var store: MatchStore
+    @ObservedObject var screen: ScreenContext
     @State private var expanded = false
-    @State private var metrics = NotchMetrics.fallback
     var onCardFrame: (CGRect) -> Void = { _ in }
+
+    /// Live notch geometry for the screen the overlay is currently on. Driven by
+    /// `ScreenContext`, so the layout re-renders when displays change.
+    private var metrics: NotchMetrics { screen.metrics }
 
     private var topCornerRadius: CGFloat { expanded ? 15 : 7 }
     private var bottomCornerRadius: CGFloat { expanded ? 22 : 14 }
@@ -52,7 +56,6 @@ struct NotchRootView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .coordinateSpace(name: "overlay")
-        .onAppear { metrics = NotchMetrics.current }
     }
 
     private var card: some View {
