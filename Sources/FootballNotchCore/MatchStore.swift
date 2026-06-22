@@ -79,4 +79,4 @@ public final class MatchStore: ObservableObject {
 }
 
 /// Poll fast while a match is live, slowly while idle (protects the feed).
-public func pollInterval(isLive: Bool) -> TimeInterval { isLive ? 90 : 600 }
+public func pollInterval(isLive: Bool) -> TimeInterval { isLive ? 30 : 600 }

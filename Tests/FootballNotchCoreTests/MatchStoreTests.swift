@@ -127,7 +127,7 @@ final class MatchStoreTests: XCTestCase {
     }
 
     func testPollIntervalLiveVsIdle() {
-        XCTAssertEqual(pollInterval(isLive: true), 90)
+        XCTAssertEqual(pollInterval(isLive: true), 30)
         XCTAssertEqual(pollInterval(isLive: false), 600)
     }
 
