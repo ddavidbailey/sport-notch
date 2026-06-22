@@ -13,8 +13,8 @@ public struct Goal: Sendable, Equatable {
     }
 }
 
-/// goal surfaced UI one match. `token` monotonic id assigned
-/// store view re-animates even consecutive goals otherwise identical.
+/// A goal surfaced to the UI for one match. `token` is a monotonic id assigned by the
+/// store so the view re-animates even when consecutive goals are otherwise identical.
 public struct GoalFlash: Sendable, Equatable {
     public let side: GoalSide
     public let delta: Int
@@ -27,11 +27,11 @@ public struct GoalFlash: Sendable, Equatable {
 }
 
 /// Goals scored between two live-match snapshots. Only matches present in BOTH snapshots
-/// (matched by id) compared, match's first appearance baseline never
-/// reports existing score goal. Each side increased reported once,
-/// `delta` = score increase.
+/// (matched by id) are compared, so a match's first appearance is a baseline and never
+/// reports its existing score as a goal. Each side that increased is reported once, with
+/// `delta` = the score increase.
 public func detectGoals(previous: [Match], current: [Match]) -> [Goal] {
-    let prevById = Dictionary(previous.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    let prevById = Dictionary(previous.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }) // duplicate ids shouldn't occur in a snapshot; keep the first defensively
     var goals: [Goal] = []
     for match in current {
         guard let old = prevById[match.id] else { continue }
