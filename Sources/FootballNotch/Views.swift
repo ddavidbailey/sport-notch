@@ -147,10 +147,17 @@ struct FollowedMatchView: View {
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(.green)
                 } else if match.isLive {
+                    // A live match without a minute clock (the feed nulls MatchTime in some
+                    // states, e.g. halftime) would otherwise leave the compact notch blank
+                    // under the teams — fall back to the kickoff time so a time always shows.
                     if !match.clock.isEmpty {
                         Text(match.clock)
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(.green)
+                    } else {
+                        Text(kickoffString(match.kickoff, now: Date()))
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
                     }
                 } else {
                     VStack(spacing: 2) {
