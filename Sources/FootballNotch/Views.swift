@@ -29,9 +29,18 @@ struct NotchRootView: View {
     /// `ScreenContext`, so the layout re-renders when displays change.
     private var metrics: NotchMetrics { screen.metrics }
 
-    private var topCornerRadius: CGFloat { expanded ? 15 : 7 }
+    // The top edge sits flush against the screen's flat notch top, so it has no
+    // corner radius — only the bottom is rounded, mirroring the physical notch.
+    private var topCornerRadius: CGFloat { 0 }
     private var bottomCornerRadius: CGFloat { expanded ? 22 : 14 }
     private var topContentInset: CGFloat { metrics.hasNotch ? metrics.height : 8 }
+
+    /// While resting on a real notch, the card matches the physical notch width
+    /// exactly so it sits flush — and stays that width when a match goes live and
+    /// the score replaces the countdown. Expanded (or notchless) it grows to fit.
+    private var collapsedWidth: CGFloat? {
+        (metrics.hasNotch && !expanded) ? metrics.width : nil
+    }
 
     private var shape: AnyShape {
         if metrics.hasNotch {
@@ -77,7 +86,8 @@ struct NotchRootView: View {
         .padding(.horizontal, 14)
         .padding(.top, topContentInset + 4)
         .padding(.bottom, expanded ? 14 : 8)
-        .frame(minWidth: max(metrics.width, 120))
+        .frame(width: collapsedWidth)
+        .frame(minWidth: collapsedWidth == nil ? max(metrics.width, 120) : nil)
         .fixedSize()
         .background(Color.black, in: shape)
         .overlay {
