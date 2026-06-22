@@ -9,8 +9,10 @@ public final class MatchStore: ObservableObject {
     @Published public private(set) var upcomingMatches: [Match] = []
     @Published public private(set) var followedMatchId: String?
     @Published public private(set) var connection: ConnectionState = .fresh
+    @Published public private(set) var goalFlashes: [String: GoalFlash] = [:]
 
     private let service: any FootballService
+    private var goalToken = 0
 
     public init(service: any FootballService) {
         self.service = service
@@ -55,8 +57,14 @@ public final class MatchStore: ObservableObject {
         do {
             let live = try await service.fetchLiveMatches()
             let upcoming = try await service.fetchUpcomingMatches()
+            let previousLive = liveMatches
             liveMatches = live
             upcomingMatches = upcoming
+
+            for goal in detectGoals(previous: previousLive, current: live) {
+                goalToken += 1
+                goalFlashes[goal.matchId] = GoalFlash(side: goal.side, delta: goal.delta, token: goalToken)
+            }
 
             // Drop a stale selection whose match has dropped out of both feeds.
             if let id = followedMatchId,

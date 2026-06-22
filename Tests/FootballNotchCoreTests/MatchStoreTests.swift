@@ -22,6 +22,20 @@ private func match(_ id: String, status: MatchStatus = .live,
           kickoff: Date(timeIntervalSince1970: kickoff))
 }
 
+private final class MutableService: FootballService, @unchecked Sendable {
+    var live: [Match]
+    var upcoming: [Match]
+    init(live: [Match], upcoming: [Match]) { self.live = live; self.upcoming = upcoming }
+    func fetchLiveMatches() async throws -> [Match] { live }
+    func fetchUpcomingMatches() async throws -> [Match] { upcoming }
+}
+
+private func liveMatch(_ id: String, _ home: Int, _ away: Int) -> Match {
+    Match(id: id, competitionId: "17", home: team("ECU"), away: team("CUW"),
+          homeScore: home, awayScore: away, status: .live, clock: "5'",
+          kickoff: Date(timeIntervalSince1970: 0))
+}
+
 @MainActor
 final class MatchStoreTests: XCTestCase {
     func testRefreshSelectsFirstMatchByDefault() async {
@@ -115,5 +129,25 @@ final class MatchStoreTests: XCTestCase {
     func testPollIntervalLiveVsIdle() {
         XCTAssertEqual(pollInterval(isLive: true), 90)
         XCTAssertEqual(pollInterval(isLive: false), 600)
+    }
+
+    func testGoalBetweenRefreshesPublishesFlash() async {
+        let svc = MutableService(live: [liveMatch("g", 0, 0)], upcoming: [])
+        let store = MatchStore(service: svc)
+        await store.refresh()                       // baseline 0–0
+        XCTAssertNil(store.goalFlashes["g"])
+
+        svc.live = [liveMatch("g", 1, 0)]           // home team scores
+        await store.refresh()
+
+        XCTAssertEqual(store.goalFlashes["g"]?.side, .home)
+        XCTAssertEqual(store.goalFlashes["g"]?.delta, 1)
+        XCTAssertEqual(store.goalFlashes["g"]?.token, 1)
+    }
+
+    func testFirstRefreshDoesNotFlash() async {
+        let store = MatchStore(service: MutableService(live: [liveMatch("g", 2, 1)], upcoming: []))
+        await store.refresh()
+        XCTAssertTrue(store.goalFlashes.isEmpty)
     }
 }
