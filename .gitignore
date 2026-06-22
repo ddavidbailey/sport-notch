@@ -6,6 +6,12 @@ docs/
 CLAUDE.md
 CLAUDE.local.md
 
+# Superpowers
+.superpowers/
+
+# Cursor
+.cursor/
+
 # Swift / build artifacts
 .build/
 FootballNotch.app/
