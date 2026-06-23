@@ -68,49 +68,15 @@ struct NotchRootView: View {
         .coordinateSpace(name: "overlay")
     }
 
-    /// Either the full card or, when the user has minimized it, the soccer-ball pill.
-    /// Only one is in the tree at a time, so the reported frame (and thus the panel's
-    /// interactive region) shrinks to exactly the ball while minimized.
+    /// Either the full card or, when minimized, nothing at all. The zero-size view
+    /// reports an empty frame, so the whole overlay becomes click-through while
+    /// hidden — the notch is reopened from the menu bar (or by a fresh kickoff).
     @ViewBuilder private var content: some View {
         if store.isMinimized {
-            minimizedBall
+            Color.clear.frame(width: 0, height: 0)
         } else {
             card
         }
-    }
-
-    /// Collapsed-to-nothing state: a small soccer ball hanging just below the notch.
-    /// Hover does nothing here (no `.onHover`); a click reopens the card. A fresh
-    /// kickoff also reopens it, via `MatchStore`.
-    private var minimizedBall: some View {
-        Circle()
-            .fill(Color.black)
-            .frame(width: 34, height: 34)
-            .overlay {
-                Image(systemName: "soccerball")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
-            .contentShape(Circle())
-            .onTapGesture { store.restore() }
-            .padding(.top, topContentInset + 4)
-    }
-
-    /// Small minus button shown only while expanded; collapses the card to the ball.
-    private var minimizeButton: some View {
-        Button {
-            withAnimation(notchAnimation) { expanded = false }
-            store.minimize()
-        } label: {
-            Image(systemName: "minus")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(.white.opacity(0.85))
-                .frame(width: 18, height: 18)
-                .background(Color.white.opacity(0.16), in: Circle())
-        }
-        .buttonStyle(.plain)
-        .help("Minimize")
     }
 
     private var card: some View {
@@ -128,9 +94,6 @@ struct NotchRootView: View {
                 )
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
-        }
-        .overlay(alignment: .topTrailing) {
-            if expanded { minimizeButton }
         }
         .padding(.horizontal, 14)
         .padding(.top, topContentInset + 4)

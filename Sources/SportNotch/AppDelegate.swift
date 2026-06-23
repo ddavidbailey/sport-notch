@@ -23,7 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }),
             context: screen)
-        statusBarController = StatusBarController()
+        statusBarController = StatusBarController(store: store)
         startPolling()
     }
 
