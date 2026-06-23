@@ -79,6 +79,23 @@ struct NotchRootView: View {
         }
     }
 
+    /// Small minus button shown only while expanded; hides the notch. It reopens from
+    /// the menu bar's Show toggle (or automatically on a fresh kickoff).
+    private var minimizeButton: some View {
+        Button {
+            withAnimation(notchAnimation) { expanded = false }
+            store.minimize()
+        } label: {
+            Image(systemName: "minus")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.white.opacity(0.85))
+                .frame(width: 18, height: 18)
+                .background(Color.white.opacity(0.16), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .help("Hide Sport Notch")
+    }
+
     private var card: some View {
         VStack(alignment: .leading, spacing: 10) {
             FollowedMatchView(match: store.followedMatch,
@@ -94,6 +111,9 @@ struct NotchRootView: View {
                 )
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
+        }
+        .overlay(alignment: .topTrailing) {
+            if expanded { minimizeButton }
         }
         .padding(.horizontal, 14)
         .padding(.top, topContentInset + 4)
