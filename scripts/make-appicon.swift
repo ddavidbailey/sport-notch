@@ -19,6 +19,112 @@ func col(_ hex: UInt32, _ a: CGFloat = 1) -> NSColor {
             alpha: a)
 }
 
+// --- real truncated-icosahedron geometry (the actual shape of a football) ---
+typealias V3 = (x: Double, y: Double, z: Double)
+func vadd(_ a: V3, _ b: V3) -> V3 { (a.x + b.x, a.y + b.y, a.z + b.z) }
+func vsub(_ a: V3, _ b: V3) -> V3 { (a.x - b.x, a.y - b.y, a.z - b.z) }
+func vdot(_ a: V3, _ b: V3) -> Double { a.x * b.x + a.y * b.y + a.z * b.z }
+func vscale(_ a: V3, _ s: Double) -> V3 { (a.x * s, a.y * s, a.z * s) }
+func vcross(_ a: V3, _ b: V3) -> V3 {
+    (a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
+}
+func vlen(_ a: V3) -> Double { vdot(a, a).squareRoot() }
+func vnorm(_ a: V3) -> V3 { let l = vlen(a); return (a.x / l, a.y / l, a.z / l) }
+
+struct Football { let verts: [V3]; let pentagons: [[Int]]; let edges: [(Int, Int)] }
+
+// The 60 vertices (even/cyclic permutations of the canonical coordinate set,
+// edge length 2), the 12 pentagonal faces (the 5 vertices nearest each
+// icosahedral axis), and the 90 edges (vertex pairs one edge-length apart).
+let football: Football = {
+    let phi = (1.0 + 5.0.squareRoot()) / 2.0
+    func cyc(_ a: Double, _ b: Double, _ c: Double) -> [V3] { [(a, b, c), (b, c, a), (c, a, b)] }
+
+    var verts: [V3] = []
+    for s1 in [1.0, -1.0] { for s2 in [1.0, -1.0] {
+        verts += cyc(0, s1, s2 * 3 * phi)                       // (0, ±1, ±3φ)
+    } }
+    for s1 in [1.0, -1.0] { for s2 in [1.0, -1.0] { for s3 in [1.0, -1.0] {
+        verts += cyc(s1, s2 * (2 + phi), s3 * 2 * phi)          // (±1, ±(2+φ), ±2φ)
+    } } }
+    for s1 in [1.0, -1.0] { for s2 in [1.0, -1.0] { for s3 in [1.0, -1.0] {
+        verts += cyc(s1 * phi, s2 * 2, s3 * (2 * phi + 1))      // (±φ, ±2, ±(2φ+1))
+    } } }
+
+    var pentagons: [[Int]] = []
+    for s1 in [1.0, -1.0] { for s2 in [1.0, -1.0] {
+        for axis in cyc(0, s1, s2 * phi) {                      // 12 icosahedral axes
+            let a = vnorm(axis)
+            let near = (0..<verts.count).sorted { vdot(verts[$0], a) > vdot(verts[$1], a) }
+            pentagons.append(Array(near.prefix(5)))
+        }
+    } }
+
+    var edges: [(Int, Int)] = []
+    for i in 0..<verts.count { for j in (i + 1)..<verts.count {
+        if vlen(vsub(verts[i], verts[j])) < 2.1 { edges.append((i, j)) }
+    } }
+
+    return Football(verts: verts, pentagons: pentagons, edges: edges)
+}()
+
+// Draw the football pattern into a circle of radius `R` centred at `bc`: one
+// pentagonal face is rotated to face the viewer (a vertex pointing up), the
+// front pentagons are filled, and every front edge is stroked so the white
+// hexagons read as connected patches — a real ball, not floating shapes.
+func drawFootball(_ bc: CGPoint, _ R: CGFloat, _ ink: NSColor, _ seamW: CGFloat) {
+    let phi = (1.0 + 5.0.squareRoot()) / 2.0
+    let rho = (1.0 + 9.0 * phi * phi).squareRoot()             // circumradius
+    // Zoom in slightly so the rim pentagons reach the silhouette and are cropped
+    // by the ball edge, instead of leaving a white equatorial halo around them.
+    let overscan = 1.20
+    let scale = Double(R) / rho * overscan
+
+    // Build a view basis: central pentagon's axis -> +z (toward viewer), and one
+    // of its vertices -> +y (up).
+    let p0 = football.pentagons[0]
+    var axis: V3 = (0, 0, 0)
+    for k in p0 { axis = vadd(axis, football.verts[k]) }
+    let zc = vnorm(axis)
+    let top = football.verts[p0[0]]
+    let yc = vnorm(vsub(top, vscale(zc, vdot(top, zc))))
+    let xc = vcross(yc, zc)
+
+    func project(_ p: V3) -> (pt: CGPoint, depth: Double) {
+        (CGPoint(x: bc.x + CGFloat(vdot(p, xc) * scale),
+                 y: bc.y + CGFloat(vdot(p, yc) * scale)), vdot(p, zc))
+    }
+
+    // fill the front-facing pentagons
+    ink.setFill()
+    for pent in football.pentagons {
+        var c: V3 = (0, 0, 0)
+        for k in pent { c = vadd(c, football.verts[k]) }
+        if vdot(vnorm(c), zc) <= 0.12 { continue }            // back / edge-on: skip
+        let pts = pent.map { project(football.verts[$0]).pt }
+        let mx = pts.map(\.x).reduce(0, +) / CGFloat(pts.count)
+        let my = pts.map(\.y).reduce(0, +) / CGFloat(pts.count)
+        let ring = pts.sorted { atan2($0.y - my, $0.x - mx) < atan2($1.y - my, $1.x - mx) }
+        let path = NSBezierPath()
+        path.move(to: ring[0])
+        for q in ring.dropFirst() { path.line(to: q) }
+        path.close()
+        path.fill()
+    }
+
+    // stroke the seam network (front edges only)
+    ink.set()
+    let seams = NSBezierPath()
+    seams.lineWidth = seamW
+    seams.lineCapStyle = .round
+    seams.lineJoinStyle = .round
+    for (i, j) in football.edges {
+        let a = project(football.verts[i]), b = project(football.verts[j])
+        if a.depth > 0, b.depth > 0 { seams.move(to: a.pt); seams.line(to: b.pt) }
+    }
+    seams.stroke()
+}
+
 func drawIcon(_ S: CGFloat) -> NSBitmapImageRep {
     let px = Int(S)
     let rep = NSBitmapImageRep(
@@ -93,31 +199,29 @@ func drawIcon(_ S: CGFloat) -> NSBitmapImageRep {
     ballPath.fill()
     NSGraphicsContext.restoreGraphicsState()
 
-    // volume: off-white radial shading
+    // volume: sphere shading — bright upper-left highlight fades to muted lower-right
     NSGraphicsContext.saveGraphicsState()
     ballPath.addClip()
     let hi = CGPoint(x: ballRect.midX - ballD * 0.20, y: ballRect.midY + ballD * 0.20)
-    NSGradient(colors: [col(0xFFFFFF), col(0xE7EAE1)])!
-        .draw(fromCenter: hi, radius: ballD * 0.04,
-              toCenter: CGPoint(x: ballRect.midX, y: ballRect.midY), radius: ballD * 0.62, options: [])
+    NSGradient(colors: [col(0xFFFFFF), col(0xD6DAD2)])!
+        .draw(fromCenter: hi, radius: ballD * 0.03,
+              toCenter: CGPoint(x: ballRect.midX + ballD * 0.10, y: ballRect.midY - ballD * 0.10),
+              radius: ballD * 0.70, options: [])
+    // rim darkening for depth
+    NSGradient(colors: [col(0x9EA49A, 0.0), col(0x6E7469, 0.22)])!
+        .draw(fromCenter: CGPoint(x: ballRect.midX, y: ballRect.midY), radius: ballD * 0.48,
+              toCenter: CGPoint(x: ballRect.midX + ballD * 0.12, y: ballRect.midY - ballD * 0.12),
+              radius: ballD * 0.72, options: [])
     NSGraphicsContext.restoreGraphicsState()
 
-    // ink seam pattern (Apple's soccerball glyph, recolored)
-    if let base = NSImage(systemSymbolName: "soccerball", accessibilityDescription: nil),
-       let sym = base.withSymbolConfiguration(.init(pointSize: ballD, weight: .regular)) {
-        let tinted = NSImage(size: sym.size)
-        tinted.lockFocus()
-        col(0x14161A).set()
-        let rr = NSRect(origin: .zero, size: sym.size)
-        sym.draw(in: rr)
-        rr.fill(using: .sourceAtop)
-        tinted.unlockFocus()
-
-        let aspect = sym.size.width / sym.size.height
-        let h = ballD * 0.96
-        let w = h * aspect
-        tinted.draw(in: CGRect(x: ballRect.midX - w / 2, y: ballRect.midY - h / 2, width: w, height: h))
-    }
+    // Telstar pattern, drawn from the real truncated-icosahedron geometry so the
+    // black pentagons connect at their corners through the white hexagons — a
+    // genuine football rather than floating shapes.
+    NSGraphicsContext.saveGraphicsState()
+    ballPath.addClip()
+    drawFootball(CGPoint(x: ballRect.midX, y: ballRect.midY), ballD / 2,
+                 col(0x161616), max(1, 0.012 * ballD))
+    NSGraphicsContext.restoreGraphicsState()
 
     // sheen
     NSGraphicsContext.saveGraphicsState()
